@@ -1,4 +1,6 @@
 {
+    "baseUrl": "types",
+    "typeRoots": ["types"],    
     "compilerOptions": {
         "module": "commonjs",
         "target": "es6",

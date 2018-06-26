@@ -2,6 +2,8 @@ import { workspace, window } from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OutputChannel } from './outputChannel';
+import * as nedb from 'nedb';
+
 
 const map = [
     {
@@ -48,29 +50,80 @@ const map = [
 ];
 
 
+let wrkDb: any = {};
+
 export class CobolWorkspace{
+
+    initOperationsDb(){
+        if(!workspace || !workspace.workspaceFolders){
+            wrkDb = {};
+            return;
+        }
+
+        workspace
+        .workspaceFolders
+        .map((wrk)=>{
+            wrkDb[wrk.uri.fsPath] = new nedb({autoload: true, filename: path.join(wrk.uri.fsPath, '.vscode', 'file-operations.db')});
+        });
+    }
 
     excludedExtenssions = ['7z','bak','cproject','cs','css','ctrl','dat','data','db','dll','doc','docx','event','exe','flag','gif','hce','htm','html','index','ini','jpeg','jpg','js','launch','lck','lnk','lock','log','luc','mark','markers','mht','msg','pdf','pdom','png','ppt','prefs','project','properties','ps','rar','resources','scc','sig','src','trace','tree','ts','url','version','vsd','wav','xls','xlsx','xml','xsl','ydy','ydyd','zip', 'mp3'];
     moveFolderInclusions = ['cbl','cob', 'job','jcl','dclg','dclgen','dclg.cpy','dclgen.cpy','fd','cpy','sql','bms'];
 
-    fixFilesExtenssions(files: any[])  {
-        const filteredFiles = files.filter((file) => {
-            const ext = path.extname(file.fsPath).toLowerCase();
-            
-            if(ext && this.excludedExtenssions.indexOf(ext.substr(1)) > -1){
-                return false;
+    mkdir(fullDirName: string, operationsDb: nedb){
+        if (fs.existsSync(fullDirName)){
+            return;
+        }
+
+        fullDirName
+        .split(path.sep)
+        .reduce((currentPath, folder) => {
+          currentPath += folder + path.sep;
+          if (!fs.existsSync(currentPath)){
+            fs.mkdirSync(currentPath);
+
+            operationsDb.insert({type: 'newDirectory', changedAt: new Date(), dir: currentPath}, (err, doc)=>{});
+
+          }
+          return currentPath;
+        }, '');
+    }
+    
+    renameFile(src: string, dst: string, operationsDb: nedb){
+        fs.renameSync(src, dst);
+
+        operationsDb.insert({type: 'moveFile', changedAt: new Date(), src, dst}, (err, doc)=>{
+            if(err){
+                OutputChannel.appendLine(`moved error!`);
             }
-            return true;
+            OutputChannel.appendLine(`moved ok!`);
         });
 
-        filteredFiles.map((file, i) => {
-            setTimeout(() => {
-                if(i >= filteredFiles.length-1){
-                    window.showInformationMessage('Renaming files extenssions finished!');
-                }
-                this.fixFileExtenssion(file);
-            }, 10*i);
-        });
+    }
+
+    groupFileByPrefix(baseFolder: any, file: any, operationsDb: nedb){
+        const parsed = path.parse(file.fsPath);
+        const absRootDir = path.join(path.resolve(baseFolder), 'src');
+
+
+        if(parsed.name.length < 5){
+            OutputChannel.appendLine(`skkiped: '${file.fsPath}', name size lessthan 5.`);
+            return;
+        }
+
+        const dstDir = path.join(absRootDir, parsed.name.substr(0, 4), path.sep);
+
+        if(file.fsPath.toLowerCase().startsWith(dstDir.toLowerCase())){
+            OutputChannel.appendLine(`skkiped: '${file.fsPath}', aleady is in folder.`);
+            return;
+        } 
+
+        this.mkdir(dstDir, operationsDb);
+
+        OutputChannel.appendLine(`moving from: '${file.fsPath}'`);
+        OutputChannel.appendLine(`         to: '${path.join(dstDir, parsed.base)}'`);
+        
+        this.renameFile(file.fsPath, path.join(dstDir, parsed.base), operationsDb);
 
     }
 
@@ -79,6 +132,8 @@ export class CobolWorkspace{
             return;
         }
         
+        this.initOperationsDb();
+
         workspace.workspaceFolders.map((wrk) => {
             window.showInformationMessage('Grouping files prefix ...');
 
@@ -87,9 +142,9 @@ export class CobolWorkspace{
             .then((files) => {
                 const filteredFiles = files.filter((file) => {
                     const ext = path.extname(file.fsPath).toLowerCase();
-                    
+                                
                     if(!ext || this.moveFolderInclusions.indexOf(ext.substr(1)) === -1){
-                        OutputChannel.appendLine(`skipped: '${file.fsPath}'`);
+                        OutputChannel.appendLine(`skkiped: '${file.fsPath}', extension not match.`);
                         return false;
                     }
                     return true;
@@ -101,7 +156,7 @@ export class CobolWorkspace{
                             window.showInformationMessage('Grouping files finished!');
                         }
         
-                        this.groupFileByPrefix(wrk.uri.fsPath, f);
+                        this.groupFileByPrefix(wrk.uri.fsPath, f, wrkDb[wrk.uri.fsPath]);
                     }, 10*i);
                 });
             });
@@ -157,6 +212,26 @@ export class CobolWorkspace{
         });
     }
     
+    fixFilesExtenssions(files: any[])  {
+        const filteredFiles = files.filter((file) => {
+            const ext = path.extname(file.fsPath).toLowerCase();
+            
+            if(ext && this.excludedExtenssions.indexOf(ext.substr(1)) > -1){
+                return false;
+            }
+            return true;
+        });
+
+        filteredFiles.map((file, i) => {
+            setTimeout(() => {
+                if(i >= filteredFiles.length-1){
+                    window.showInformationMessage('Renaming files extenssions finished!');
+                }
+                this.fixFileExtenssion(file);
+            }, 10*i);
+        });
+
+    }
 
     fixWorkspaceFilesExtenssions(){
         window.showInformationMessage('Finding and renaming files extenssions...');
@@ -164,57 +239,6 @@ export class CobolWorkspace{
         .then((files) => {
             this.fixFilesExtenssions(files);
         });
-    }
-
-    mkdir(fullDirName: string){
-        if (fs.existsSync(fullDirName)){
-            return;
-        }
-
-        fullDirName
-        .split(path.sep)
-        .reduce((currentPath, folder) => {
-          currentPath += folder + path.sep;
-          if (!fs.existsSync(currentPath)){
-            fs.mkdirSync(currentPath);
-          }
-          return currentPath;
-        }, '');
-    }
-    
-    groupFileByPrefix(baseFolder: any, file: any){
-        const parsed = path.parse(file.fsPath);
-        const absRootDir = path.join(path.resolve(baseFolder), 'src');
-
-
-        if(parsed.name.length < 8){
-            return;
-        }
-
-        if(this.moveFolderInclusions.indexOf(parsed.ext.substring(1).toLowerCase()) === -1){
-            return;
-        }
-
-        const dstDir = path.join(absRootDir, parsed.name.substr(0, 4));
-
-        if(file.fsPath.toLowerCase().startsWith(dstDir.toLowerCase())){
-            OutputChannel.appendLine(`skkiped: '${file.fsPath}'`);
-            return;
-        }
-
-        this.mkdir(dstDir);
-
-        OutputChannel.appendLine(`moving from: '${file.fsPath}'`);
-        OutputChannel.appendLine(`         to: '${path.join(dstDir, parsed.base)}'`);
-        fs.rename(file.fsPath, path.join(dstDir, parsed.base), (err)=>{
-            if(err){
-                OutputChannel.appendLine(`moved error!`);
-                return;
-            }
-            OutputChannel.appendLine(`moved ok!`);
-
-        });
-
     }
  
 }

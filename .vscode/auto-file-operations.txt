@@ -1,0 +1,3 @@
+{type: 'newfolder', parent: '/dev', 'folder'}
+{type: 'renamefile', src: '/dev/file1.txt', dst: '/dev/folder/file1.txt'}
+{type: 'renamefile', src: '/dev/folder/file1.txt', dst: '/dev/folder/file1.cob'}
