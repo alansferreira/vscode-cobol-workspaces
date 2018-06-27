@@ -13,7 +13,7 @@ export function activate(context: ExtensionContext) {
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
     var organizeExtenssions = commands.registerCommand('cobolplugin.organizeExtenssions', function () {
-        cobolWorkspace.fixWorkspaceFilesExtenssions();
+        //cobolWorkspace.fixWorkspaceFilesExtenssions();
     });
     var groupFilesByPrefix = commands.registerCommand('cobolplugin.groupfilesbyprefix', function () {
         cobolWorkspace.groupFilesByPrefix();

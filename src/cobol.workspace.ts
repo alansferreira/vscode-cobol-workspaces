@@ -1,9 +1,8 @@
-import { workspace, window } from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import { OutputChannel } from './outputChannel';
 import * as nedb from 'nedb';
-
+import * as path from 'path';
+import { window, workspace, WorkspaceFolder, Uri } from 'vscode';
+import { OutputChannel } from './outputChannel';
+import { FsChangeSet, FsChangeType, FsChange } from './fs-change-set';
 
 const map = [
     {
@@ -54,6 +53,8 @@ let wrkDb: any = {};
 
 export class CobolWorkspace{
 
+    constructor(){}
+
     initOperationsDb(){
         if(!workspace || !workspace.workspaceFolders){
             wrkDb = {};
@@ -70,175 +71,132 @@ export class CobolWorkspace{
     excludedExtenssions = ['7z','bak','cproject','cs','css','ctrl','dat','data','db','dll','doc','docx','event','exe','flag','gif','hce','htm','html','index','ini','jpeg','jpg','js','launch','lck','lnk','lock','log','luc','mark','markers','mht','msg','pdf','pdom','png','ppt','prefs','project','properties','ps','rar','resources','scc','sig','src','trace','tree','ts','url','version','vsd','wav','xls','xlsx','xml','xsl','ydy','ydyd','zip', 'mp3'];
     moveFolderInclusions = ['cbl','cob', 'job','jcl','dclg','dclgen','dclg.cpy','dclgen.cpy','fd','cpy','sql','bms'];
 
-    mkdir(fullDirName: string, operationsDb: nedb){
-        if (fs.existsSync(fullDirName)){
-            return;
-        }
-
-        fullDirName
-        .split(path.sep)
-        .reduce((currentPath, folder) => {
-          currentPath += folder + path.sep;
-          if (!fs.existsSync(currentPath)){
-            fs.mkdirSync(currentPath);
-
-            operationsDb.insert({type: 'newDirectory', changedAt: new Date(), dir: currentPath}, (err, doc)=>{});
-
-          }
-          return currentPath;
-        }, '');
-    }
     
-    renameFile(src: string, dst: string, operationsDb: nedb){
-        fs.renameSync(src, dst);
-
-        operationsDb.insert({type: 'moveFile', changedAt: new Date(), src, dst}, (err, doc)=>{
-            if(err){
-                OutputChannel.appendLine(`moved error!`);
-            }
-            OutputChannel.appendLine(`moved ok!`);
-        });
-
-    }
-
-    groupFileByPrefix(baseFolder: any, file: any, operationsDb: nedb){
-        const parsed = path.parse(file.fsPath);
-        const absRootDir = path.join(path.resolve(baseFolder), 'src');
-
-
-        if(parsed.name.length < 5){
-            OutputChannel.appendLine(`skkiped: '${file.fsPath}', name size lessthan 5.`);
-            return;
-        }
-
-        const dstDir = path.join(absRootDir, parsed.name.substr(0, 4), path.sep);
-
-        if(file.fsPath.toLowerCase().startsWith(dstDir.toLowerCase())){
-            OutputChannel.appendLine(`skkiped: '${file.fsPath}', aleady is in folder.`);
-            return;
-        } 
-
-        this.mkdir(dstDir, operationsDb);
-
-        OutputChannel.appendLine(`moving from: '${file.fsPath}'`);
-        OutputChannel.appendLine(`         to: '${path.join(dstDir, parsed.base)}'`);
-        
-        this.renameFile(file.fsPath, path.join(dstDir, parsed.base), operationsDb);
-
-    }
-
     groupFilesByPrefix(){
         if(!workspace.workspaceFolders) {
             return;
         }
         
-        this.initOperationsDb();
-
         workspace.workspaceFolders.map((wrk) => {
             window.showInformationMessage('Grouping files prefix ...');
 
+            const executor = new GroupByPrefix(wrk, 'src');
+            
+            executor.buildChanges()
+            .then((fsChanges) => {
+                executor.changes = fsChanges;
+                executor.apply();
+            });
+        
+        });
+
+    }
+
+ 
+}
+
+export class GroupByPrefix extends FsChangeSet{
+    basePath: string;
+
+    constructor(
+        private workspaceFolder: WorkspaceFolder,
+        private middlePath?: string,
+    )
+    {
+        super(workspaceFolder.uri.fsPath, [], new Date());
+        this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep).toLowerCase();
+    }
+
+
+    buildChanges(): Promise<FsChange[]> {
+        return new Promise((resolve, reject) => {
+            
             workspace
-            .findFiles('**/*')
-            .then((files) => {
-                const filteredFiles = files.filter((file) => {
-                    const ext = path.extname(file.fsPath).toLowerCase();
-                                
-                    if(!ext || this.moveFolderInclusions.indexOf(ext.substr(1)) === -1){
-                        OutputChannel.appendLine(`skkiped: '${file.fsPath}', extension not match.`);
+            .findFiles('**/*', '.actions')
+            .then((files: Uri[]) => {
+                const filteredFiles = files.filter((f) => {
+                    
+                    if(!f.fsPath.startsWith(this.basePath)){
+                        return false;
+                    }
+
+                    const parsed = path.parse(f.fsPath);
+                    if(parsed.name.length < 5){
+                        OutputChannel.appendLine(`skkiped: '${f.fsPath}', name size lessthan 5.`);
                         return false;
                     }
                     return true;
+                }).map((f) => path.parse(f.fsPath));
+
+                
+                const fsChanges: FsChange[] = [];
+                this.buildFolders(filteredFiles)
+                .then((fsChangesDir) => {
+
+                    fsChanges.push(...fsChangesDir);
+
+                    this.buildFilesMoves(filteredFiles).then((fsChangesFiles) => {
+                        fsChanges.push(...fsChangesFiles);
+
+                        return resolve(fsChanges);
+
+                    });
                 });
-        
-                filteredFiles.map((f, i) => {
-                    setTimeout(() => {
-                        if(i >= filteredFiles.length-1){
-                            window.showInformationMessage('Grouping files finished!');
-                        }
-        
-                        this.groupFileByPrefix(wrk.uri.fsPath, f, wrkDb[wrk.uri.fsPath]);
-                    }, 10*i);
-                });
+
             });
-
-        });
-
-    }
-
-
-    constructor(){}
-
-    renameExtenssion(src: string, newExtenssion: string){
-        const srcParsed = path.parse(src);
-        const dst = path.join(srcParsed.dir, srcParsed.name + '.' + newExtenssion);
-        const dstParsed = path.parse(dst);
-        
-        if(dstParsed.ext.toLowerCase()===srcParsed.ext.toLowerCase()){
-            return;
-        }
-
-        OutputChannel.appendLine(`renaming  : ${src}`);
-        fs.rename(src, dst, (err) => {
-            if(err){
-                OutputChannel.appendLineError(`error renaming: '${src}'`);
-                OutputChannel.appendLineError(`            to: '${dst}'`);
-                return;
-            }                        
-            OutputChannel.appendLine(`renamed to: ${dst}`);
-        });
-
-    }
-
-    fixFileExtenssion(file: any): any {
-        fs.stat(file.fsPath, (err, stat) => {
-            if(stat.size > (1024 * 1024 * 2)){
-                OutputChannel.appendLine(`too large, f: '${file.path}', s: ${stat.size}`);
-                return;
-            }
-
-            const content = fs.readFileSync(file.fsPath).toString();
             
-            for (let i = 0; i < map.length; i++) {
-                const m = map[i];
-                if(m.regx.test(content) || m.regx.test(content)) {
-                    this.renameExtenssion(file.fsPath, m.extenssion);
+        });
+    }
+    buildFolders(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
+        return new Promise((resolve, reject) => {
+            const fsChanges:  FsChange[] = [];
+            const paths: string[] = [];
+            
+            if(this.middlePath){
+                const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath);
+    
+                fsChanges.push(<FsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+            }
+    
+    
+            parsedFiles.map((f) => {
+                const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '', f.name.substring(0, 4));
+                
+                if (paths.indexOf(dst) >- 1 ){
                     return;
                 }
-                
-            }
-            OutputChannel.appendLine(`not renamed: '${file.fsPath}'`);
-            return;
-
-        });
-    }
+                paths.push(dst);
+                fsChanges.push(<FsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
     
-    fixFilesExtenssions(files: any[])  {
-        const filteredFiles = files.filter((file) => {
-            const ext = path.extname(file.fsPath).toLowerCase();
+            });
+    
+            return resolve(fsChanges);
+        });
+    }
+    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
+        return new Promise((resolve, reject) => {
+            const fsChanges: FsChange[] = [];
+
+            parsedFiles.map((parsedFile) => {
+                const absRootDir = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
+                const dstDir = path.join(absRootDir, parsedFile.name.substr(0, 4), path.sep);
+                const srcFullPath = path.join(parsedFile.dir,parsedFile.base);
+                const dstFullPath = path.join(dstDir, parsedFile.base);
+    
+                if(srcFullPath.startsWith(dstDir)){
+                    OutputChannel.appendLine(`skkiped: '${srcFullPath}', aleady is in folder.`);
+                    return fsChanges;
+                } 
+        
+                fsChanges.push(<FsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+        
+                OutputChannel.appendLine(`moving from: '${srcFullPath}'`);
+                OutputChannel.appendLine(`         to: '${dstFullPath}'`);
+        
+            });
             
-            if(ext && this.excludedExtenssions.indexOf(ext.substr(1)) > -1){
-                return false;
-            }
-            return true;
-        });
-
-        filteredFiles.map((file, i) => {
-            setTimeout(() => {
-                if(i >= filteredFiles.length-1){
-                    window.showInformationMessage('Renaming files extenssions finished!');
-                }
-                this.fixFileExtenssion(file);
-            }, 10*i);
-        });
-
-    }
-
-    fixWorkspaceFilesExtenssions(){
-        window.showInformationMessage('Finding and renaming files extenssions...');
-        workspace.findFiles('**/*')
-        .then((files) => {
-            this.fixFilesExtenssions(files);
+            return resolve(fsChanges);
         });
     }
- 
+
 }
