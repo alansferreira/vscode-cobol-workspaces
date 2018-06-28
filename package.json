@@ -2,7 +2,7 @@
     "name": "cobol-workspaces",
     "displayName": "cobol-workspaces",
     "description": "COBOL Workspaces Management Standards",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "publisher": "assil",
     "repository": {
         "type": "git",
