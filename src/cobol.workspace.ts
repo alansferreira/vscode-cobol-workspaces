@@ -1,8 +1,8 @@
-import * as nedb from 'nedb';
+import * as fs from 'fs';
 import * as path from 'path';
 import { window, workspace, WorkspaceFolder, Uri } from 'vscode';
 import { OutputChannel } from './outputChannel';
-import { FsChangeSet, FsChangeType, FsChange } from './fs-change-set';
+import { FsChangeSetApplier, FsChangeType, IFsChange, IFsChangeSet } from './fs-change-set';
 
 const map = [
     {
@@ -49,29 +49,33 @@ const map = [
 ];
 
 
-let wrkDb: any = {};
+const excludedExtenssions = ['7z','bak','cproject','cs','css','ctrl','dat','data','db','dll','doc','docx','event','exe','flag','gif','hce','htm','html','index','ini','jpeg','jpg','js','launch','lck','lnk','lock','log','luc','mark','markers','mht','msg','pdf','pdom','png','ppt','prefs','project','properties','ps','rar','resources','scc','sig','src','trace','tree','ts','url','version','vsd','wav','xls','xlsx','xml','xsl','ydy','ydyd','zip', 'mp3'];
+const moveFolderInclusions = ['cbl','cob', 'job','jcl','dclg','dclgen','dclg.cpy','dclgen.cpy','fd','cpy','sql','bms'];
 
 export class CobolWorkspace{
 
     constructor(){}
-
-    initOperationsDb(){
-        if(!workspace || !workspace.workspaceFolders){
-            wrkDb = {};
+    
+    fixFilesExtensions(){
+        if(!workspace.workspaceFolders) {
             return;
         }
+        
+        workspace.workspaceFolders.map((wrk) => {
+            window.showInformationMessage('Fixing files extensions ...');
 
-        workspace
-        .workspaceFolders
-        .map((wrk)=>{
-            wrkDb[wrk.uri.fsPath] = new nedb({autoload: true, filename: path.join(wrk.uri.fsPath, '.vscode', 'file-operations.db')});
+            const executor = new FixFilesExtenssions(wrk);
+            
+            executor.buildChanges()
+            .then((fsChanges) => {
+                executor.changeSet.changes = fsChanges;
+                executor.apply();
+            });
+        
         });
+
     }
 
-    excludedExtenssions = ['7z','bak','cproject','cs','css','ctrl','dat','data','db','dll','doc','docx','event','exe','flag','gif','hce','htm','html','index','ini','jpeg','jpg','js','launch','lck','lnk','lock','log','luc','mark','markers','mht','msg','pdf','pdom','png','ppt','prefs','project','properties','ps','rar','resources','scc','sig','src','trace','tree','ts','url','version','vsd','wav','xls','xlsx','xml','xsl','ydy','ydyd','zip', 'mp3'];
-    moveFolderInclusions = ['cbl','cob', 'job','jcl','dclg','dclgen','dclg.cpy','dclgen.cpy','fd','cpy','sql','bms'];
-
-    
     groupFilesByPrefix(){
         if(!workspace.workspaceFolders) {
             return;
@@ -84,7 +88,7 @@ export class CobolWorkspace{
             
             executor.buildChanges()
             .then((fsChanges) => {
-                executor.changes = fsChanges;
+                executor.changeSet.changes = fsChanges;
                 executor.apply();
             });
         
@@ -92,10 +96,25 @@ export class CobolWorkspace{
 
     }
 
+    undoLastAction(){
+        if(!workspace.workspaceFolders) {
+            return;
+        }
+
+
+        workspace.workspaceFolders.map((wrk) => {
+            window.showInformationMessage('Grouping files prefix ...');
+
+            const executor = new GroupByPrefix(wrk, 'src');
+            
+            executor.undo();        
+        });
+
+    }
  
 }
 
-export class GroupByPrefix extends FsChangeSet{
+export class GroupByPrefix extends FsChangeSetApplier{
     basePath: string;
 
     constructor(
@@ -103,12 +122,16 @@ export class GroupByPrefix extends FsChangeSet{
         private middlePath?: string,
     )
     {
-        super(workspaceFolder.uri.fsPath, [], new Date());
+        super(<IFsChangeSet>{
+            baseDir: workspaceFolder.uri.fsPath, 
+            changes: [], 
+            changedAt: new Date()
+        });
         this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep).toLowerCase();
     }
 
 
-    buildChanges(): Promise<FsChange[]> {
+    buildChanges(): Promise<IFsChange[]> {
         return new Promise((resolve, reject) => {
             
             workspace
@@ -121,6 +144,10 @@ export class GroupByPrefix extends FsChangeSet{
                     }
 
                     const parsed = path.parse(f.fsPath);
+                    if(moveFolderInclusions.indexOf(parsed.ext.toLowerCase().substring(1)) === -1){
+                        return false;
+                    }
+                    
                     if(parsed.name.length < 5){
                         OutputChannel.appendLine(`skkiped: '${f.fsPath}', name size lessthan 5.`);
                         return false;
@@ -129,7 +156,7 @@ export class GroupByPrefix extends FsChangeSet{
                 }).map((f) => path.parse(f.fsPath));
 
                 
-                const fsChanges: FsChange[] = [];
+                const fsChanges: IFsChange[] = [];
                 this.buildFolders(filteredFiles)
                 .then((fsChangesDir) => {
 
@@ -137,6 +164,10 @@ export class GroupByPrefix extends FsChangeSet{
 
                     this.buildFilesMoves(filteredFiles).then((fsChangesFiles) => {
                         fsChanges.push(...fsChangesFiles);
+
+                        for (let i = 0; i < fsChanges.length; i++) {
+                            fsChanges[i].index = i;
+                        }
 
                         return resolve(fsChanges);
 
@@ -147,15 +178,15 @@ export class GroupByPrefix extends FsChangeSet{
             
         });
     }
-    buildFolders(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
+    buildFolders(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
         return new Promise((resolve, reject) => {
-            const fsChanges:  FsChange[] = [];
+            const fsChanges:  IFsChange[] = [];
             const paths: string[] = [];
             
             if(this.middlePath){
                 const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath);
     
-                fsChanges.push(<FsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+                fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
             }
     
     
@@ -166,16 +197,16 @@ export class GroupByPrefix extends FsChangeSet{
                     return;
                 }
                 paths.push(dst);
-                fsChanges.push(<FsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+                fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
     
             });
     
             return resolve(fsChanges);
         });
     }
-    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
+    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
         return new Promise((resolve, reject) => {
-            const fsChanges: FsChange[] = [];
+            const fsChanges: IFsChange[] = [];
 
             parsedFiles.map((parsedFile) => {
                 const absRootDir = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
@@ -188,7 +219,7 @@ export class GroupByPrefix extends FsChangeSet{
                     return fsChanges;
                 } 
         
-                fsChanges.push(<FsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+                fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
         
                 OutputChannel.appendLine(`moving from: '${srcFullPath}'`);
                 OutputChannel.appendLine(`         to: '${dstFullPath}'`);
@@ -196,6 +227,95 @@ export class GroupByPrefix extends FsChangeSet{
             });
             
             return resolve(fsChanges);
+        });
+    }
+
+}
+
+export class FixFilesExtenssions extends FsChangeSetApplier{
+    constructor(
+        workspaceFolder: WorkspaceFolder
+    )
+    {
+        super(<IFsChangeSet>{
+            baseDir: workspaceFolder.uri.fsPath, 
+            changes: [], 
+            changedAt: new Date()
+        });
+    }
+
+
+    buildChanges(): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            
+            workspace
+            .findFiles('**/*', '.actions')
+            .then((files: Uri[]) => {
+                const filteredFiles = files.filter((f) => {
+                    
+                    const ext = path.extname(f.fsPath).toLowerCase();
+            
+                    if(ext && excludedExtenssions.indexOf(ext.substr(1)) > -1){
+                        return false;
+                    }
+                    return true;
+                }).map((f) => path.parse(f.fsPath));
+
+                const fsChanges: IFsChange[] = [];
+                
+                this.buildFilesMoves(filteredFiles)
+                .then((fsChangesFiles) => {
+                    fsChanges.push(...fsChangesFiles);
+
+                    for (let i = 0; i < fsChanges.length; i++) {
+                        fsChanges[i].index = i;
+                    }
+
+                    return resolve(fsChanges);
+
+                });
+
+            });
+            
+        });
+    }
+    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            const fsChanges: IFsChange[] = [];
+            const parsedFilesCopy: path.ParsedPath[] = [];
+            
+            parsedFilesCopy.push(...parsedFiles);
+
+            const intervalKey = setInterval(() => {
+                if(parsedFilesCopy.length === 0){
+                    clearInterval(intervalKey);
+                    resolve(fsChanges);
+                }
+                
+                const srcParsed = parsedFilesCopy.splice(0,1)[0];
+                const srcFullPath = path.join(srcParsed.dir, srcParsed.base);
+                
+                fs.stat(srcFullPath, (err, stat) => {
+                    if(stat.size > (1024 * 1024 * 2)){
+                        OutputChannel.appendLine(`too large, f: '${srcFullPath}', s: ${stat.size}`);
+                        return;
+                    }
+        
+                    const content = fs.readFileSync(srcFullPath).toString();
+                    
+                    for (let i = 0; i < map.length; i++) {
+                        const m = map[i];
+                        if(m.regx.test(content) || m.regx.test(content)) {
+                            const dstFullPath = path.join(srcParsed.dir, srcParsed.name + '.' + m.extenssion);
+                            
+                            fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+
+                            return;
+                        }                        
+                    }
+                    return;
+                });
+            }, 10);
         });
     }
 

@@ -1,9 +1,9 @@
 import * as fs from 'fs';
-import * as moment from 'moment';
 import * as nedb from 'nedb';
 import * as path from 'path';
+import { OutputChannel } from './outputChannel';
 
-export class FsChangeSet{
+export class FsChangeSetApplier{
     
     private static mkdir = (fullpath: string) => {
         if(fs.existsSync(fullpath)){
@@ -21,89 +21,183 @@ export class FsChangeSet{
 
     }
 
-    private static applyNewDir = (fsChange: FsChange) => {
-        if(fs.existsSync(fsChange.dst)){
-            return true;
-        }
-
-        FsChangeSet.mkdir(fsChange.dst);
-
+    private static applyNewDir = (fsChange: IFsChange) => {
+        FsChangeSetApplier.mkdir(fsChange.dst);
         return (fs.existsSync(fsChange.dst));
     }
 
-    private static applyRenameDir = (fsChange: FsChange) => {
+    private static applyRenameDir = (fsChange: IFsChange) => {
         fs.renameSync(fsChange.src, fsChange.dst);
     }
 
-    private static applyRenameFile = (fsChange: FsChange) => {
+    private static applyRenameFile = (fsChange: IFsChange) => {
         fs.renameSync(fsChange.src, fsChange.dst);
     }
     
     private static applyDelegators = {
-        'NEW_DIR': FsChangeSet.applyNewDir,
-        'RENAME_DIR': FsChangeSet.applyRenameDir,
-        'RENAME_FILE': FsChangeSet.applyRenameFile
+        'NEW_DIR': FsChangeSetApplier.applyNewDir,
+        'RENAME_DIR': FsChangeSetApplier.applyRenameDir,
+        'RENAME_FILE': FsChangeSetApplier.applyRenameFile
+    };
+
+    private static undoNewDir = (fsChange: IFsChange) => {
+        fs.rmdirSync(fsChange.dst);        
+        return (!fs.existsSync(fsChange.dst));
+    }
+
+    private static undoRenameDir = (fsChange: IFsChange) => {
+        fs.renameSync(fsChange.dst, fsChange.src);
+    }
+
+    private static undoRenameFile = (fsChange: IFsChange) => {
+        fs.renameSync(fsChange.dst, fsChange.src);
+    }
+
+    private static undoDelegators = {
+        'NEW_DIR': FsChangeSetApplier.undoNewDir,
+        'RENAME_DIR': FsChangeSetApplier.undoRenameDir,
+        'RENAME_FILE': FsChangeSetApplier.undoRenameFile
     };
 
 
+    changeLog: nedb;
+
     constructor(
-        public baseDir: string,
-        public changes: FsChange[],
-        public changedAt: Date)
+        public changeSet: IFsChangeSet
+        // public baseDir: string,
+        // public changes: IFsChange[],
+        // public changedAt: Date
+    )
     {
-
-
-    }
-
-    buildChanges(): Promise<FsChange[]> {
-        return new Promise((resolve, reject) => {
-            return reject(new Error('Not Implemented'));
-        });
-    }
-    buildFolders(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
-        return new Promise((resolve, reject) => {
-            return reject(new Error('Not Implemented'));
-        });
-    }
-    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<FsChange[]> {
-        return new Promise((resolve, reject) => {
-            return reject(new Error('Not Implemented'));
-        });
-    }
-
-    apply(){
-        const _this = this;
-        const storageDir = path.join(this.baseDir, '.acitons');
-        let storageFilename = path.join(storageDir, `wrk-changes.json`);
+        const storageDir = path.join(this.changeSet.baseDir, '.acitons');
+        let storageFilename = path.join(storageDir, `wrk-changes.nedb`);
         
         if(!fs.existsSync(storageDir)) {
             fs.mkdirSync(storageDir);
         } 
         
-        const changeLog = new nedb({autoload: true, filename: storageFilename});
+        this.changeLog = new nedb({autoload: true, filename: storageFilename});
 
-        var changesCopy: FsChange[] = [];
-        changesCopy.push(...this.changes);
+    }
 
-        const intervalKey = setInterval(() => {
-            if(changesCopy.length === 0 ) {
-                clearInterval(intervalKey);
+    buildChanges(): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            return reject(new Error('Not Implemented'));
+        });
+    }
+    buildFolders(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            return reject(new Error('Not Implemented'));
+        });
+    }
+    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            return reject(new Error('Not Implemented'));
+        });
+    }
 
-                changeLog.insert({
-                    changes: _this.changes,
-                    changedAt: _this.changedAt,
-                    baseDir: _this.baseDir
+    undo(): Promise<any>{
+        const _this = this;
+
+        return new Promise((resolve, reject) => {
+            const changesCopy: IFsChange[] = [];
+
+            this.changeLog
+            .find({})
+            .sort({changedAt: -1})
+            .limit(1)
+            .exec((err, docs) => {
+                const changeSets = <IFsChangeSet[]>docs;  
+                if(!changeSets || !changeSets.length) {
+                    return resolve({ok: true});
+                }
+
+                changeSets.map((changeSet: IFsChangeSet) => {
+                    changesCopy.push(...changeSet.changes.sort((a, b) => b.index - a.index));
+                    
+                    const intervalKey = setInterval(() => {
+                        if(changesCopy.length === 0 ) {
+                            clearInterval(intervalKey);
+        
+                            _this.changeLog.remove({_id: changeSet._id},(err, doc) => {
+                                
+                                resolve({ok: true});
+                            
+                            });
+        
+                            return;
+                        }
+        
+                        const change: IFsChange = changesCopy.splice(0,1)[0];
+                        
+                        OutputChannel.appendLine(`unding: ${change.type}, ${change.dst} => ${change.src}`);
+                        try {
+                            this.undoChange(change);
+                            OutputChannel.appendLine(`unded : ${change.type}, ${change.dst} => ${change.src}`);
+                        } catch (error) {
+                            console.error(error);
+                            OutputChannel.appendLine(`error  : ${error}, ${change.dst} => ${change.src}`);
+                        }
+                
+                    }, 10);
+                            
+                    // changeSet.changes
+                    // .sort((a, b) => b.index - a.index)
+                    // .map((change) => {
+                    //     OutputChannel.appendLine(`${change.index}: "${change.src}" => "${change.dst}";`);
+                    //     // FsChangeSetApplier.undoDelegators[change.type](change);
+                    // });
                 });
+            });
+        });
+        
+    }
+    
+    undoChange(change: IFsChange){
+        FsChangeSetApplier.undoDelegators[change.type](change);
+    }
 
-                return;
-            }
+    applyChange(change: IFsChange){
+        FsChangeSetApplier.applyDelegators[change.type](change);
+    }
+    apply(){
+        const _this = this;
+        return new Promise((resolve, reject) =>{
 
-            const change: FsChange = changesCopy.splice(0,1)[0];
-            
-            FsChangeSet.applyDelegators[change.type](change);
+            var changesCopy: IFsChange[] = [];
+            changesCopy.push(...this.changeSet.changes);
 
-        }, 10);
+            const intervalKey = setInterval(() => {
+                if(changesCopy.length === 0 ) {
+                    clearInterval(intervalKey);
 
+                    _this.changeLog.insert({
+                        changes: _this.changeSet.changes,
+                        changedAt: _this.changeSet.changedAt,
+                        baseDir: _this.changeSet.baseDir
+                    },(err, doc) => {
+                        
+                        resolve({ok: true});
+                    
+                    });
+
+                    return;
+                }
+
+                const change: IFsChange = changesCopy.splice(0,1)[0];
+                
+                OutputChannel.appendLine(`appling: ${change.type}, ${change.src} => ${change.dst}`);
+                try {
+                    this.applyChange(change);
+                    OutputChannel.appendLine(`applied : ${change.type}, ${change.src} => ${change.dst}`);
+                } catch (error) {
+                    console.error(error);
+                    OutputChannel.appendLine(`error  : ${error}, ${change.src} => ${change.dst}`);
+                }
+
+            }, 10);
+
+        });
     }
 
 }
@@ -114,14 +208,22 @@ export enum FsChangeType{
     RENAME_FILE = 'RENAME_FILE'
 }
 
-export interface FsChangeApplyFunction { (): boolean; }
-export interface FsChangeUndoFunction { (): boolean; }
+export interface IFsChangeApplyFunction { (): boolean; }
+export interface IFsChangeUndoFunction { (): boolean; }
 
-export interface FsChange{
+export interface IFsChangeSet{
+    _id?: any;
+    baseDir: string;
+    changes: IFsChange[];
+    changedAt: Date;
+}
+
+export interface IFsChange{
     type: FsChangeType;
+    index: number;
     src: string;
     dst: string;
-    apply: FsChangeApplyFunction;
-    undo: FsChangeUndoFunction;
+    apply: IFsChangeApplyFunction;
+    undo: IFsChangeUndoFunction;
 }
 

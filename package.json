@@ -12,7 +12,8 @@
     ],
     "activationEvents": [
         "onCommand:cobolplugin.organizeExtenssions",
-        "onCommand:cobolplugin.groupfilesbyprefix"
+        "onCommand:cobolplugin.groupfilesbyprefix",
+        "onCommand:cobolplugin.undolastaction"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -24,6 +25,10 @@
             {
                 "command": "cobolplugin.groupfilesbyprefix",
                 "title": "COBOL: Group workspace files by prefix"
+            },
+            {
+                "command": "cobolplugin.undolastaction",
+                "title": "COBOL: Undo last action"
             }
         ]
     },

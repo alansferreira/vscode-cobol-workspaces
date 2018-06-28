@@ -13,14 +13,18 @@ export function activate(context: ExtensionContext) {
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
     var organizeExtenssions = commands.registerCommand('cobolplugin.organizeExtenssions', function () {
-        //cobolWorkspace.fixWorkspaceFilesExtenssions();
+        cobolWorkspace.fixFilesExtensions();
     });
     var groupFilesByPrefix = commands.registerCommand('cobolplugin.groupfilesbyprefix', function () {
         cobolWorkspace.groupFilesByPrefix();
     });
+    var undoLastAction = commands.registerCommand('cobolplugin.undolastaction', function () {
+        cobolWorkspace.undoLastAction();
+    });
 
     context.subscriptions.push(organizeExtenssions);
     context.subscriptions.push(groupFilesByPrefix);
+    context.subscriptions.push(undoLastAction);
 
 }
 
