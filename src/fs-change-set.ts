@@ -213,6 +213,7 @@ export interface IFsChangeUndoFunction { (): boolean; }
 
 export interface IFsChangeSet{
     _id?: any;
+    type: string;
     baseDir: string;
     changes: IFsChange[];
     changedAt: Date;

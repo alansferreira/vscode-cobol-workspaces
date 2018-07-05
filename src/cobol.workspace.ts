@@ -69,7 +69,10 @@ export class CobolWorkspace{
             executor.buildChanges()
             .then((fsChanges) => {
                 executor.changeSet.changes = fsChanges;
-                executor.apply();
+                executor.apply()
+                .then(() => {
+                    window.showInformationMessage('Files extensions fixed!');
+                });
             });
         
         });
@@ -89,7 +92,10 @@ export class CobolWorkspace{
             executor.buildChanges()
             .then((fsChanges) => {
                 executor.changeSet.changes = fsChanges;
-                executor.apply();
+                executor.apply()
+                .then(() => {
+                    window.showInformationMessage('Grouping files finished!');
+                });
             });
         
         });
@@ -103,11 +109,19 @@ export class CobolWorkspace{
 
 
         workspace.workspaceFolders.map((wrk) => {
-            window.showInformationMessage('Grouping files prefix ...');
+            window.showInformationMessage('Undoing last workspace changes ...');
 
-            const executor = new GroupByPrefix(wrk, 'src');
+            const executor = new FsChangeSetApplier({
+                type: 'GENERICUNDO',
+                baseDir: wrk.uri.fsPath, 
+                changes: [], 
+                changedAt: new Date()
+            });
             
-            executor.undo();        
+            executor.undo()
+            .then(() => {
+                window.showInformationMessage('Last workspace changes undoed!');
+            });
         });
 
     }
@@ -123,6 +137,7 @@ export class GroupByPrefix extends FsChangeSetApplier{
     )
     {
         super(<IFsChangeSet>{
+            type: 'GROUPBYPREFIX',
             baseDir: workspaceFolder.uri.fsPath, 
             changes: [], 
             changedAt: new Date()
@@ -238,6 +253,7 @@ export class FixFilesExtenssions extends FsChangeSetApplier{
     )
     {
         super(<IFsChangeSet>{
+            type: 'FIXEXTENSIONS',
             baseDir: workspaceFolder.uri.fsPath, 
             changes: [], 
             changedAt: new Date()
