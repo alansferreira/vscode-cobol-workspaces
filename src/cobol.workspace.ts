@@ -17,12 +17,12 @@ const map = [
     },
     {
         type: 'dclgenSource',
-        extenssion: 'dclgen.cpy',
+        extenssion: 'dclgen',
         regx: /CREATE[ ]{1,}TABLE[ ]{1}.*^[ ]{7,}[0-9]+[ ].*\./igm,
     },
     {
         type: 'dclgenSource1',
-        extenssion: 'dclgen.cpy',
+        extenssion: 'dclgen',
         regx: /EXEC[ ]{1,}SQL[ ]{1,}DECLARE[ ]{1,}.*[ ]{1}TABLE/igm,
     },
     {

@@ -106,7 +106,7 @@ export class FsChangeSetApplier{
             .find({})
             .sort({changedAt: -1})
             .limit(1)
-            .exec((err, docs) => {
+            .exec((err: any, docs: any[]) => {
                 const changeSets = <IFsChangeSet[]>docs;  
                 if(!changeSets || !changeSets.length) {
                     return resolve({ok: true});
@@ -119,7 +119,7 @@ export class FsChangeSetApplier{
                         if(changesCopy.length === 0 ) {
                             clearInterval(intervalKey);
         
-                            _this.changeLog.remove({_id: changeSet._id},(err, doc) => {
+                            _this.changeLog.remove({_id: changeSet._id},(err: any, doc: any) => {
                                 
                                 resolve({ok: true});
                             
@@ -175,7 +175,7 @@ export class FsChangeSetApplier{
                         changes: _this.changeSet.changes,
                         changedAt: _this.changeSet.changedAt,
                         baseDir: _this.changeSet.baseDir
-                    },(err, doc) => {
+                    },(err: any, doc: any) => {
                         
                         resolve({ok: true});
                     
