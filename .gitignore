@@ -1,3 +1,6 @@
+# Compiled files
+out
+
 # Logs
 logs
 *.log

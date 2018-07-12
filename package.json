@@ -2,8 +2,15 @@
     "name": "cobol-workspaces",
     "displayName": "cobol-workspaces",
     "description": "COBOL Workspaces Management Standards",
-    "version": "0.0.1",
-    "publisher": "alansferreira",
+    "version": "0.2.0",
+    "publisher": "assil",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/alansferreira/vscode-cobol-workspaces"
+    },
+    "keywords": [
+        "wbvaldkwbuz2mm45dpyon2bvgdfw25oi76yniqkxxh3gcfvif36a"
+    ],
     "engines": {
         "vscode": "^1.24.0"
     },
@@ -12,7 +19,8 @@
     ],
     "activationEvents": [
         "onCommand:cobolplugin.organizeExtenssions",
-        "onCommand:cobolplugin.groupfilesbyprefix"
+        "onCommand:cobolplugin.groupfilesbyprefix",
+        "onCommand:cobolplugin.undolastaction"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -24,6 +32,10 @@
             {
                 "command": "cobolplugin.groupfilesbyprefix",
                 "title": "COBOL: Group workspace files by prefix"
+            },
+            {
+                "command": "cobolplugin.undolastaction",
+                "title": "COBOL: Undo last action"
             }
         ]
     },
@@ -35,10 +47,16 @@
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
     "devDependencies": {
-        "typescript": "^2.6.1",
-        "vscode": "^1.1.6",
-        "tslint": "^5.8.0",
-        "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "@types/mocha": "2.2.42",
+        "@types/bluebird": "3.5.20",
+        "@types/node": "7.0.43",
+        "@types/nedb": "1.8.5",
+        "tslint": "5.8.0",
+        "typescript": "2.6.1"
+    },
+    "dependencies": {
+        "moment": "2.22.2",
+        "nedb": "1.8.0",
+        "vscode": "1.1.18"
     }
 }
