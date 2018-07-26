@@ -12,6 +12,10 @@ export function activate(context: ExtensionContext) {
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
+    var organizeFromFtp = commands.registerCommand('cobolplugin.organizeFromFtp', function () {
+        cobolWorkspace.organizeFromFtp();
+    });
+
     var organizeExtenssions = commands.registerCommand('cobolplugin.organizeExtenssions', function () {
         cobolWorkspace.fixFilesExtensions();
     });
@@ -22,6 +26,7 @@ export function activate(context: ExtensionContext) {
         cobolWorkspace.undoLastAction();
     });
 
+    context.subscriptions.push(organizeFromFtp);
     context.subscriptions.push(organizeExtenssions);
     context.subscriptions.push(groupFilesByPrefix);
     context.subscriptions.push(undoLastAction);

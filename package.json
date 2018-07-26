@@ -18,6 +18,7 @@
         "Other"
     ],
     "activationEvents": [
+        "onCommand:cobolplugin.organizeFromFtp",
         "onCommand:cobolplugin.organizeExtenssions",
         "onCommand:cobolplugin.groupfilesbyprefix",
         "onCommand:cobolplugin.undolastaction"
@@ -25,6 +26,10 @@
     "main": "./out/extension",
     "contributes": {
         "commands": [
+            {
+                "command": "cobolplugin.organizeFromFtp",
+                "title": "COBOL: Fix workspace files by ftp download"
+            },
             {
                 "command": "cobolplugin.organizeExtenssions",
                 "title": "COBOL: Fix workspace files extenssions"

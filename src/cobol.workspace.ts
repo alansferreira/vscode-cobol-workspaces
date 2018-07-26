@@ -55,6 +55,29 @@ const moveFolderInclusions = ['cbl','cob', 'job','jcl','dclg','dclgen','dclg.cpy
 export class CobolWorkspace{
 
     constructor(){}
+
+    organizeFromFtp(){
+        if(!workspace.workspaceFolders) {
+            return;
+        }
+        
+        workspace.workspaceFolders.map((wrk) => {
+            window.showInformationMessage('Auto fixing files path and names ...');
+
+            const executor = new OrganizeFromFtp(wrk);
+            
+            executor.buildChanges()
+            .then((fsChanges) => {
+                executor.changeSet.changes = fsChanges;
+                executor.apply()
+                .then(() => {
+                    window.showInformationMessage('Files fixed!');
+                });
+            });
+        
+        });
+
+    }
     
     fixFilesExtensions(){
         if(!workspace.workspaceFolders) {
@@ -126,6 +149,141 @@ export class CobolWorkspace{
 
     }
  
+}
+
+export class OrganizeFromFtp extends FsChangeSetApplier{
+    basePath: string;
+    ftpExpr = /([\w\d\.]+)\(([^\)]+)\)/gi;
+
+    constructor(
+        private workspaceFolder: WorkspaceFolder,
+        private middlePath?: string,
+    )
+    {
+        super(<IFsChangeSet>{
+            type: 'AUTOORGANIZE',
+            baseDir: workspaceFolder.uri.fsPath, 
+            changes: [], 
+            changedAt: new Date()
+        });
+        this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep);
+    }
+
+
+    buildChanges(): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            
+            workspace
+            .findFiles('**/*', '.actions')
+            .then((files: Uri[]) => {
+                const filteredFiles = files.filter((f) => {
+                    
+                    if(!f.fsPath.startsWith(this.basePath)){
+                        return false;
+                    }
+
+                    const parsed = path.parse(f.fsPath);
+                    if(excludedExtenssions.indexOf(parsed.ext.toLowerCase().substring(1)) !== -1){
+                        return false;
+                    }
+
+                    return true;
+                }).map((f) => path.parse(f.fsPath));
+
+                
+                const fsChanges: IFsChange[] = [];
+                this.buildFolders(filteredFiles)
+                .then((fsChangesDir) => {
+
+                    fsChanges.push(...fsChangesDir);
+
+                    this.buildFilesMoves(filteredFiles).then((fsChangesFiles) => {
+                        fsChanges.push(...fsChangesFiles);
+
+                        for (let i = 0; i < fsChanges.length; i++) {
+                            fsChanges[i].index = i;
+                        }
+
+                        return resolve(fsChanges);
+
+                    });
+                });
+
+            });
+            
+        });
+    }
+    buildFolders(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            const fsChanges:  IFsChange[] = [];
+            const paths: string[] = [];
+            
+            if(this.middlePath){
+                const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath);
+    
+                fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+            }
+    
+    
+            parsedFiles.map((f) => {
+                this.ftpExpr.lastIndex = -1;
+                const srcFileName = path.join(f.dir, f.base);
+
+                let dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
+                
+                const m = this.ftpExpr.exec(f.base);
+                if(m && m.index > -1){
+                    const dir = m[1].split('.');
+                    const fileName = m[2];
+                    
+                    dir.map((d) => {
+                        dst = path.join(dst, d);
+                        if (paths.indexOf(dst) >- 1 ){
+                            return;
+                        }
+                        paths.push(dst);
+                        fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+                    });
+                    
+                    const ext = discoverFileExtenssion(srcFileName);
+                    
+                    dst = path.join(dst, fileName + '.' + (ext || 'txt'));
+                    fsChanges.push(<IFsChange>{src: srcFileName, dst: dst, type: FsChangeType.RENAME_FILE});
+                }
+                
+    
+            });
+    
+            return resolve(fsChanges);
+        });
+    }
+    buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
+        return new Promise((resolve, reject) => {
+            // const fsChanges: IFsChange[] = [];
+
+            // parsedFiles.map((parsedFile) => {
+            //     const absRootDir = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
+            //     const dstDir = path.join(absRootDir, parsedFile.name.substr(0, 4), path.sep);
+            //     const srcFullPath = path.join(parsedFile.dir,parsedFile.base);
+            //     const dstFullPath = path.join(dstDir, parsedFile.base);
+    
+            //     if(srcFullPath.startsWith(dstDir)){
+            //         OutputChannel.appendLine(`skkiped: '${srcFullPath}', aleady is in folder.`);
+            //         return fsChanges;
+            //     } 
+        
+            //     fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+        
+            //     OutputChannel.appendLine(`moving from: '${srcFullPath}'`);
+            //     OutputChannel.appendLine(`         to: '${dstFullPath}'`);
+        
+            // });
+            
+            // return resolve(fsChanges);
+            return resolve([]);
+        });
+    }
+
 }
 
 export class GroupByPrefix extends FsChangeSetApplier{
@@ -311,28 +469,38 @@ export class FixFilesExtenssions extends FsChangeSetApplier{
                 const srcParsed = parsedFilesCopy.splice(0,1)[0];
                 const srcFullPath = path.join(srcParsed.dir, srcParsed.base);
                 
-                fs.stat(srcFullPath, (err, stat) => {
-                    if(stat.size > (1024 * 1024 * 2)){
-                        OutputChannel.appendLine(`too large, f: '${srcFullPath}', s: ${stat.size}`);
-                        return;
-                    }
-        
-                    const content = fs.readFileSync(srcFullPath).toString();
-                    
-                    for (let i = 0; i < map.length; i++) {
-                        const m = map[i];
-                        if(m.regx.test(content) || m.regx.test(content)) {
-                            const dstFullPath = path.join(srcParsed.dir, srcParsed.name + '.' + m.extenssion);
-                            
-                            fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+                const ext = discoverFileExtenssion(srcFullPath);
+                if(ext){
+                    const dstFullPath = path.join(srcParsed.dir, srcParsed.name + '.' + ext);
 
-                            return;
-                        }                        
-                    }
-                    return;
-                });
+                    fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
+                }
             }, 10);
         });
     }
+
+}
+
+function discoverFileExtenssion(fileName: string): string | null{
+    
+    const  stat = fs.statSync(fileName);
+    
+    if(stat.size > (1024 * 1024 * 2)){
+        OutputChannel.appendLine(`too large, f: '${fileName}', s: ${stat.size}`);
+        return null;
+    }
+
+    const content = fs.readFileSync(fileName).toString();
+    
+    for (let i = 0; i < map.length; i++) {
+        const m = map[i];
+        m.regx.lastIndex = -1;
+        if(!m.regx.test(content)) {
+            continue;
+        }                        
+        
+        return m.extenssion;
+    }
+    return null;
 
 }
