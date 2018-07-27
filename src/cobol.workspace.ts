@@ -64,7 +64,7 @@ export class CobolWorkspace{
         workspace.workspaceFolders.map((wrk) => {
             window.showInformationMessage('Auto fixing files path and names ...');
 
-            const executor = new OrganizeFromFtp(wrk);
+            const executor = new OrganizeFromFtp(wrk, 'src');
             
             executor.buildChanges()
             .then((fsChanges) => {
@@ -300,7 +300,7 @@ export class GroupByPrefix extends FsChangeSetApplier{
             changes: [], 
             changedAt: new Date()
         });
-        this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep).toLowerCase();
+        this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep);
     }
 
 
