@@ -220,22 +220,17 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
             
             if(this.middlePath){
                 const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath);
-    
                 fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
             }
     
     
             parsedFiles.map((f) => {
                 this.ftpExpr.lastIndex = -1;
-                const srcFileName = path.join(f.dir, f.base);
-
                 let dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
                 
                 const m = this.ftpExpr.exec(f.base);
                 if(m && m.index > -1){
-                    const dir = m[1].split('.');
-                    const fileName = m[2];
-                    
+                    const dir = m[1].split('.');                    
                     dir.map((d) => {
                         dst = path.join(dst, d);
                         if (paths.indexOf(dst) >- 1 ){
@@ -244,14 +239,7 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
                         paths.push(dst);
                         fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
                     });
-                    
-                    const ext = discoverFileExtenssion(srcFileName);
-                    
-                    dst = path.join(dst, fileName + '.' + (ext || 'txt'));
-                    fsChanges.push(<IFsChange>{src: srcFileName, dst: dst, type: FsChangeType.RENAME_FILE});
                 }
-                
-    
             });
     
             return resolve(fsChanges);
@@ -259,31 +247,32 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
     }
     buildFilesMoves(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
         return new Promise((resolve, reject) => {
-            // const fsChanges: IFsChange[] = [];
-
-            // parsedFiles.map((parsedFile) => {
-            //     const absRootDir = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
-            //     const dstDir = path.join(absRootDir, parsedFile.name.substr(0, 4), path.sep);
-            //     const srcFullPath = path.join(parsedFile.dir,parsedFile.base);
-            //     const dstFullPath = path.join(dstDir, parsedFile.base);
-    
-            //     if(srcFullPath.startsWith(dstDir)){
-            //         OutputChannel.appendLine(`skkiped: '${srcFullPath}', aleady is in folder.`);
-            //         return fsChanges;
-            //     } 
-        
-            //     fsChanges.push(<IFsChange>{src: srcFullPath, dst: dstFullPath, type: FsChangeType.RENAME_FILE});
-        
-            //     OutputChannel.appendLine(`moving from: '${srcFullPath}'`);
-            //     OutputChannel.appendLine(`         to: '${dstFullPath}'`);
-        
-            // });
+            const fsChanges:  IFsChange[] = [];
             
-            // return resolve(fsChanges);
-            return resolve([]);
+            if(this.middlePath){
+                const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath);
+                fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
+            }
+
+            parsedFiles.map((f) => {
+                this.ftpExpr.lastIndex = -1;
+                const srcFileName = path.join(f.dir, f.base);
+                const ext = discoverFileExtenssion(srcFileName);
+
+                let dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');                
+                const m = this.ftpExpr.exec(f.base);
+                if(m && m.index > -1){
+                    const dir = m[1].replace(/\./g, '/');
+                    const fileName = m[2];
+
+                    dst = path.join(dst, dir, fileName + '.' + (ext || 'txt'));
+                    fsChanges.push(<IFsChange>{src: srcFileName, dst: dst, type: FsChangeType.RENAME_FILE});
+                }
+            });
+
+            return resolve(fsChanges);
         });
     }
-
 }
 
 export class GroupByPrefix extends FsChangeSetApplier{
