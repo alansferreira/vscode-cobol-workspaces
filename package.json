@@ -18,6 +18,7 @@
         "Other"
     ],
     "activationEvents": [
+        "onLanguage:JCL",
         "onCommand:cobolplugin.organizeFromFtp",
         "onCommand:cobolplugin.organizeExtenssions",
         "onCommand:cobolplugin.groupfilesbyprefix",
@@ -25,6 +26,18 @@
     ],
     "main": "./out/extension",
     "contributes": {
+        "languages": [
+            {
+                "id": "JCL",
+                "aliases": [
+                    "JCL"
+                ],
+                "extensions": [
+                    "jcl", "JCL", "job", "JOB"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
         "commands": [
             {
                 "command": "cobolplugin.organizeFromFtp",
@@ -62,6 +75,7 @@
     "dependencies": {
         "moment": "2.22.2",
         "nedb": "1.8.0",
-        "vscode": "1.1.18"
+        "vscode": "1.1.18", 
+        "cobol-parsers": "1.0.4"
     }
 }

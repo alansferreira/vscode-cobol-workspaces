@@ -1,12 +1,13 @@
 'use strict';
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { commands, ExtensionContext} from 'vscode';
+import { commands, ExtensionContext } from 'vscode';
 import { CobolWorkspace } from './cobol.workspace';
+import { JCLProvider } from './jcl-provider';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context: ExtensionContext) {
+export function activate(ctx: ExtensionContext) {
     const cobolWorkspace = new CobolWorkspace();
 
     // The command has been defined in the package.json file
@@ -26,10 +27,15 @@ export function activate(context: ExtensionContext) {
         cobolWorkspace.undoLastAction();
     });
 
-    context.subscriptions.push(organizeFromFtp);
-    context.subscriptions.push(organizeExtenssions);
-    context.subscriptions.push(groupFilesByPrefix);
-    context.subscriptions.push(undoLastAction);
+    ctx.subscriptions.push(organizeFromFtp);
+    ctx.subscriptions.push(organizeExtenssions);
+    ctx.subscriptions.push(groupFilesByPrefix);
+    ctx.subscriptions.push(undoLastAction);
+
+    JCLProvider.activate(ctx);
+    
+    console.log('passou');
+
 
 }
 

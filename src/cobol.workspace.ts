@@ -385,6 +385,7 @@ export class GroupByPrefix extends FsChangeSetApplier{
         
                 OutputChannel.appendLine(`moving from: '${srcFullPath}'`);
                 OutputChannel.appendLine(`         to: '${dstFullPath}'`);
+                return null;
         
             });
             

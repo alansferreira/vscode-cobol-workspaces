@@ -18,6 +18,7 @@ export class FsChangeSetApplier{
             return currentPath;
 
         }, '');
+        return true;
 
     }
 
