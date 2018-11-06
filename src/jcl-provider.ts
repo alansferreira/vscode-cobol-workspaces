@@ -100,7 +100,7 @@ export class JCLDefinitionProvider implements DefinitionProvider {
             if(files.length === 0 ) {
                 return resolve(null);
             }
-            resolve(new Location(Uri.file(files[0].fsPath), new Range(0, 0, 20, 20)));
+            resolve(new Location(Uri.file(files[0].fsPath), new Range(0, 0, 10, 0)));
         });
     }
 }
