@@ -1,40 +1,41 @@
 import { ExtensionContext, languages, DocumentFilter, HoverProvider, TextDocument, Position, CancellationToken, Hover, ReferenceProvider, ReferenceContext, ProviderResult, Location, workspace,  WorkspaceSymbolProvider, SymbolInformation, DocumentSymbolProvider, SymbolKind, Range, DefinitionProvider, Definition, Uri, DocumentSymbol } from "vscode";
 import * as Parsers from 'cobol-parsers';
 
-const JCL_MODE: DocumentFilter = { language: 'JCL', scheme: 'file' };
+const COBOL_MODE: DocumentFilter = { language: 'COBOL', scheme: 'file' };
 
-const jclParser = Parsers.jcl;
+const cobolParser = Parsers.program;
 
 
-export class JCLHoverProvider implements HoverProvider {
+export class COBOLHoverProvider implements HoverProvider {
     public provideHover(document: TextDocument, position: Position, token: CancellationToken): Thenable<Hover> {
         return new Promise((resolve, reject) => {
-            const range = document.getWordRangeAtPosition(position, /([a-zA-Z0-9\.]+)(\(([^\)]+)\))?/);
-            if(!range) {
-                return resolve(new Hover('não encontrado'));
-            }
+            // const range = document.getWordRangeAtPosition(position, /([a-zA-Z0-9\.]+)(\(([^\)]+)\))?/);
+            // if(!range) {
+            //     return resolve(new Hover('não encontrado'));
+            // }
             
-            resolve(new Hover(document.getText(range)));
+            // resolve(new Hover(document.getText(range)));
+            resolve();
         });
     }
 }
 
-export class JCLReferenceProvider implements ReferenceProvider {
+export class COBOLReferenceProvider implements ReferenceProvider {
     provideReferences(document: TextDocument, position: Position, context: ReferenceContext, token: CancellationToken): ProviderResult<Location[]> {
         return new Promise((resolve, reject) => {
             try {
                 const locations: Location[] = [];
 
                 
-                const range = document.getWordRangeAtPosition(position, /([a-zA-Z0-9\.]+)(\(([^\)]+)\))?/);
-                if(!range) {
-                    return resolve(locations);
-                }
+                // const range = document.getWordRangeAtPosition(position, /([a-zA-Z0-9\.]+)(\(([^\)]+)\))?/);
+                // if(!range) {
+                //     return resolve(locations);
+                // }
                 
-                const currentSelection = document.getText(range);
+                // const currentSelection = document.getText(range);
 
-                const parsedJob = jclParser.parseJob(document.getText());
-                jclParser.extractReferences(parsedJob);
+                // const parsedJob = cobolParser.parseJob(document.getText());
+                // cobolParser.extractReferences(parsedJob);
 
                 
                 // locations.push(new Location(Uri.file(), position)); 
@@ -48,7 +49,7 @@ export class JCLReferenceProvider implements ReferenceProvider {
 }
 
 // activated by '#' on search menu
-export class JCLWorkspaceSymbolProvider implements WorkspaceSymbolProvider {
+export class COBOLWorkspaceSymbolProvider implements WorkspaceSymbolProvider {
     provideWorkspaceSymbols(query: string, token: CancellationToken): ProviderResult<SymbolInformation[]> {
         return new Promise((resolve, reject) => {
             resolve([]);
@@ -56,11 +57,11 @@ export class JCLWorkspaceSymbolProvider implements WorkspaceSymbolProvider {
         
     }
 }
-export class JCLDocumentSymbolProvider implements DocumentSymbolProvider {
+export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
     provideDocumentSymbols(document: TextDocument, token: CancellationToken): ProviderResult<SymbolInformation[] | DocumentSymbol[]> {
         return new Promise((resolve, reject) => {
             
-            const parsedJob = jclParser.parseJob(document.getText());
+            const parsedJob = cobolParser.parseProgram(document.getText());
             const result: DocumentSymbol[] = [];
 
 
@@ -94,66 +95,66 @@ export class JCLDocumentSymbolProvider implements DocumentSymbolProvider {
 
 
 
-            parsedJob.statements.map((stmt) => {
-                try {
-                    const range = new Range(stmt.startedAtLine - 1, 0, stmt.endedAtLine - 1, 0);
-                    let name = `${stmt.labelName}: ${stmt.STMT_TYPE}`;
+            // parsedJob.statements.map((stmt) => {
+            //     try {
+            //         const range = new Range(stmt.startedAtLine - 1, 0, stmt.endedAtLine - 1, 0);
+            //         let name = `${stmt.labelName}: ${stmt.STMT_TYPE}`;
                     
-                    const startAt = new Range(new Position(stmt.startedAtLine - 1, 0), new Position(stmt.endedAtLine - 1, 0));
-                    const endAt = new Range(new Position(stmt.startedAtLine - 1, 0), new Position(stmt.endedAtLine - 1, 0));
+            //         const startAt = new Range(new Position(stmt.startedAtLine - 1, 0), new Position(stmt.endedAtLine - 1, 0));
+            //         const endAt = new Range(new Position(stmt.startedAtLine - 1, 0), new Position(stmt.endedAtLine - 1, 0));
 
-                    result.push(new DocumentSymbol(name, '', SymbolKind.Key, startAt, endAt));
+            //         result.push(new DocumentSymbol(name, '', SymbolKind.Key, startAt, endAt));
                     
-                } catch (error) {
-                    console.log(error);
-                }
+            //     } catch (error) {
+            //         console.log(error);
+            //     }
                 
-            });
+            // });
 
-            const references = jclParser.extractReferences(parsedJob);
-            const refGroup = new DocumentSymbol('References', 'References', SymbolKind.Namespace, new Range(new Position(0, 0), new Position(0, 0)), new Range(new Position(0, 0), new Position(0, 0)));
-            result.push(refGroup);
+            // const references = cobolParser.extractReferences(parsedJob);
+            // const refGroup = new DocumentSymbol('References', 'References', SymbolKind.Namespace, new Range(new Position(0, 0), new Position(0, 0)), new Range(new Position(0, 0), new Position(0, 0)));
+            // result.push(refGroup);
             
             
             
-            const kindMap = {
-                'dd': {
-                    description: 'DD File call',
-                    kind: SymbolKind.File
-                },
-                'job': {
-                    description: 'JOB Call',
-                    kind: SymbolKind.Operator
-                },
-                'program': {
-                    description: 'PROGRAM Call',
-                    kind: SymbolKind.Interface
-                },
-            };
-            const addedRefNames: string[] = [];
-            const genericArrayMapper = (spec: Parsers.JobReferenceItem) => {
-                const name = spec.reference.datasetName || 
-                            spec.reference.jobName || 
-                            spec.reference.program || 
-                            spec.reference.programerName;
-                if(!name || addedRefNames.indexOf(name) > -1){
-                    return true;
-                }
-                addedRefNames.push(name);
+            // const kindMap = {
+            //     'dd': {
+            //         description: 'DD File call',
+            //         kind: SymbolKind.File
+            //     },
+            //     'job': {
+            //         description: 'JOB Call',
+            //         kind: SymbolKind.Operator
+            //     },
+            //     'program': {
+            //         description: 'PROGRAM Call',
+            //         kind: SymbolKind.Interface
+            //     },
+            // };
+            // const addedRefNames: string[] = [];
+            // const genericArrayMapper = (spec: Parsers.JobReferenceItem) => {
+            //     const name = spec.reference.datasetName || 
+            //                 spec.reference.jobName || 
+            //                 spec.reference.program || 
+            //                 spec.reference.programerName;
+            //     if(!name || addedRefNames.indexOf(name) > -1){
+            //         return true;
+            //     }
+            //     addedRefNames.push(name);
 
-                refGroup.children.push(new DocumentSymbol(name, kindMap[spec.type].description, kindMap[spec.type].kind, new Range(new Position(spec.startedAtLine - 1, 0), new Position(spec.startedAtLine - 1, 0)), new Range(new Position(spec.startedAtLine - 1, 0), new Position(spec.startedAtLine - 1, 0))));
-                return true;
-            };
+            //     refGroup.children.push(new DocumentSymbol(name, kindMap[spec.type].description, kindMap[spec.type].kind, new Range(new Position(spec.startedAtLine - 1, 0), new Position(spec.startedAtLine - 1, 0)), new Range(new Position(spec.startedAtLine - 1, 0), new Position(spec.startedAtLine - 1, 0))));
+            //     return true;
+            // };
 
-            if(references.dd){
-                references.dd.map(genericArrayMapper);
-            }
-            if(references.job){
-                references.job.map(genericArrayMapper);
-            }
-            if(references.program){
-                references.program.map(genericArrayMapper);
-            }
+            // if(references.dd){
+            //     references.dd.map(genericArrayMapper);
+            // }
+            // if(references.job){
+            //     references.job.map(genericArrayMapper);
+            // }
+            // if(references.program){
+            //     references.program.map(genericArrayMapper);
+            // }
 
 
             resolve(result);
@@ -163,41 +164,59 @@ export class JCLDocumentSymbolProvider implements DocumentSymbolProvider {
     }
     
 }
+const regexes = [
+    {
+        name: 'perform-type-1',
+        provideDefinition: (document: TextDocument, position: Position, token: CancellationToken): Definition | undefined => {
+            const positionFilter = /PERFORM[ ]{1,}([a-zA-Z0-9#\-]+)/;
+            positionFilter.lastIndex = -1;
+            const range = document.getWordRangeAtPosition(position, positionFilter);
+            if(!range) {
+                return undefined;
+            }
+            const symbol = document.getText(range);
+            positionFilter.lastIndex = -1;
+            let matchArr = positionFilter.exec(symbol);
+            if(!matchArr){
+                return undefined;
+            }
 
-export class JCLDefinitionProvider implements DefinitionProvider {
+            matchArr = new RegExp(`[ ]{7,}(${matchArr[1]})`,'gi').exec(document.getText());
+            if(!matchArr){
+                return undefined;
+            }
+
+            return new Location(document.uri, document.positionAt(matchArr.index));
+        }    
+    }
+];
+
+export class COBOLDefinitionProvider implements DefinitionProvider {
     provideDefinition(document: TextDocument, position: Position, token: CancellationToken): ProviderResult<Definition> {
         return new Promise(async(resolve, reject) => {
-            const programRegex = /EXEC[ ]{1,}PGM\=([a-zA-Z0-9#]+)/;
+            for (let r = 0; r < regexes.length; r++) {
+                const defResolver = regexes[r];
 
-            const range = document.getWordRangeAtPosition(position, programRegex);
-            if(!range) {
-                return resolve(null);
-            }
-            const expr = document.getText(range);
-            
-            programRegex.lastIndex = -1;
-            const result = programRegex.exec(expr);
-            if(!result) {
-                return resolve(null);
-            }
-            
+                const result = defResolver.provideDefinition(document, position, token);
 
-            const files = await workspace.findFiles(`**/${result[1]}*`, undefined, 1, token);
-            if(files.length === 0 ) {
-                return resolve(null);
+                if(!result) {
+                    continue;
+                }
+                return resolve(result);
             }
-            resolve(new Location(Uri.file(files[0].fsPath), new Range(0, 0, 10, 0)));
+
+            reject();
         });
     }
 }
-export class JCLProvider{
+export class COBOLProvider{
     public static activate(cxt: ExtensionContext){
         
-        cxt.subscriptions.push(languages.registerHoverProvider(JCL_MODE, new JCLHoverProvider()));
-        cxt.subscriptions.push(languages.registerReferenceProvider(JCL_MODE, new JCLReferenceProvider()));
-        cxt.subscriptions.push(languages.registerDocumentSymbolProvider(JCL_MODE, new JCLDocumentSymbolProvider()));
-        cxt.subscriptions.push(languages.registerWorkspaceSymbolProvider(new JCLWorkspaceSymbolProvider()));
-        cxt.subscriptions.push(languages.registerDefinitionProvider(JCL_MODE, new JCLDefinitionProvider()));
+        cxt.subscriptions.push(languages.registerHoverProvider(COBOL_MODE, new COBOLHoverProvider()));
+        cxt.subscriptions.push(languages.registerReferenceProvider(COBOL_MODE, new COBOLReferenceProvider()));
+        cxt.subscriptions.push(languages.registerDocumentSymbolProvider(COBOL_MODE, new COBOLDocumentSymbolProvider()));
+        cxt.subscriptions.push(languages.registerWorkspaceSymbolProvider(new COBOLWorkspaceSymbolProvider()));
+        cxt.subscriptions.push(languages.registerDefinitionProvider(COBOL_MODE, new COBOLDefinitionProvider()));
     
     }
 }

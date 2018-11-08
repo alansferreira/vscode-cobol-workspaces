@@ -4,6 +4,7 @@
 import { commands, ExtensionContext } from 'vscode';
 import { CobolWorkspace } from './cobol.workspace';
 import { JCLProvider } from './jcl-provider';
+import { COBOLProvider } from './cobol-provider';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -33,9 +34,8 @@ export function activate(ctx: ExtensionContext) {
     ctx.subscriptions.push(undoLastAction);
 
     JCLProvider.activate(ctx);
+    COBOLProvider.activate(ctx);
     
-    console.log('passou');
-
 
 }
 
