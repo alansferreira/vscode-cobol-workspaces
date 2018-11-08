@@ -2,7 +2,7 @@
 
 
 declare module 'cobol-parsers' {
-    export const copybook: any;
+    export const copybook: CopybookParser;
     export const program: ProgramParser;
     export const jcl: JCLParser;
     
@@ -72,13 +72,55 @@ declare module 'cobol-parsers' {
     }
 
     export interface ProgramReference {
-        
-        // job?: ProgramReferenceItem[];
-        // dd?: ProgramReferenceItem[];
-        // program?: ProgramReferenceItem[];
+        copybook?: ProgramReferenceItem[];
+        query?: ProgramReferenceItem[];
+        cics?: ProgramReferenceItem[];
 
+    }
+
+    export interface ProgramReferenceItem{
+        type: string;
+        startedAtLine: number;
+        reference: ProgramReferenceItemSpec;
+    }
+    export interface ProgramReferenceItemSpec{
+        fileName?: string;
+        query?: string;
+        programName?: string;
     }
 
 
 
+
+    export interface CopybookParser{
+        loadBook(content: string): CopybookParsedStatement[];
+    }
+
+
+    export interface CopybookParsedStatement {
+        src?: string;
+        type?: string;
+        logicalLevel?: number;
+        name?: string;
+        size?: number;
+        default_value?: string;
+        occurs_min?: number;
+        occurs_max?: number;
+        has_compression?: boolean;
+        compression_level?: number;
+        fields?: CopybookParsedStatement[]
+    }
+
+    export interface CopybookReference {
+        copybook?: CopybookReferenceItem[];
+    }
+
+    export interface CopybookReferenceItem{
+        type: string;
+        startedAtLine: number;
+        reference: CopybookReferenceItemSpec;
+    }
+    export interface CopybookReferenceItemSpec{
+        fileName?: string;
+    }
 } 

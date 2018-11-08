@@ -4,7 +4,7 @@
 import { commands, ExtensionContext } from 'vscode';
 import { CobolWorkspace } from './cobol.workspace';
 import { JCLProvider } from './jcl-provider';
-import { COBOLProvider } from './cobol-provider';
+import { COBOLProvider } from './cobol-language-provider';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
