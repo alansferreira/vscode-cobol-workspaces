@@ -1,4 +1,4 @@
-import { CancellationToken, Definition, DefinitionProvider, Location, Position, ProviderResult, TextDocument, workspace, window } from "vscode";
+import { CancellationToken, Definition, DefinitionProvider, Location, Position, ProviderResult, TextDocument, workspace, window, Range } from "vscode";
 import * as fs from 'fs';
 
 import * as Parsers from 'cobol-parsers';
@@ -58,6 +58,33 @@ class PerformDocumentFilter extends DocumentDefinitionFilter{
     }
 }
 
+class CopyDefinitionDocumentFilter extends DocumentDefinitionFilter{
+    getPositionFilter(): RegExp { return /COPY[ ]{1,}([a-zA-Z0-9#\-]+)/; }
+    getDefinitionFilter(): RegExp | null { 
+        if(!this.positionFilterMatch || this.positionFilterMatch.length < 2) { return null; }
+        return new RegExp(`[ ]{7,}(${this.positionFilterMatch[1]})`,'gi'); 
+    }
+    
+    getLocation(document: TextDocument, token: CancellationToken): Promise<Location>{
+        return new Promise(async (resolve, reject) => {
+            if(!this.positionFilterMatch) { return resolve(); }
+
+            const globInclude = this.positionFilterMatch[1].replace(/(.)/gi, (sub: string, args:[]): string => {
+                return `[${sub.toUpperCase()}${sub.toLowerCase()}]`;
+            });
+            const files = await workspace.findFiles(`**/${globInclude}*`);
+
+            if(!files || files.length === 0) {
+                return resolve();
+            }
+
+            const file = files[0];
+            resolve(new Location(file, new Range(0,0,0,0)));
+
+        });
+    }
+}
+
 
 
 abstract class VariableDocumentFilter extends DocumentDefinitionFilter{
@@ -71,23 +98,25 @@ abstract class VariableDocumentFilter extends DocumentDefinitionFilter{
             try {
                 
                 if(!this.positionFilterMatch){
-                    return reject();
+                    return resolve();
                 }
                 const defFilter = this.getDefinitionFilter();
                 if(!defFilter){
-                    return reject();
+                    return resolve();
                 }
                 
                 let matchArr = defFilter.exec(document.getText());
                 if(matchArr) { return resolve(new Location(document.uri, document.positionAt(matchArr.index))); }
     
                 const parsedRefs = cobolParser.extractReferences(cobolParser.parseProgram(document.getText()));
-                if(!parsedRefs.copybook) { return reject(); }
+                if(!parsedRefs.copybook) { return resolve(); }
     
                 const fileRefs = parsedRefs.copybook.map((cpy) => `**/${cpy.reference.fileName}*`);
     
                 for (let fRef = 0; fRef < fileRefs.length; fRef++) {
-                    if(token.isCancellationRequested) { return reject(); }
+                    if(token.isCancellationRequested) { 
+                        return resolve(); 
+                    }
     
                     const fileRef = fileRefs[fRef];
                     const files = await workspace.findFiles(fileRef, undefined, 100, token);
@@ -114,7 +143,7 @@ abstract class VariableDocumentFilter extends DocumentDefinitionFilter{
                 window.showErrorMessage(error);
             }
             
-            return reject();
+            return resolve();
 
         });
 
@@ -133,7 +162,8 @@ class MoveToDocumentFilter extends VariableDocumentFilter{
 const definitionResolver: DocumentDefinitionFilter[] = [
     new PerformDocumentFilter(),
     new MoveDocumentFilter(),
-    new MoveToDocumentFilter()
+    new MoveToDocumentFilter(),
+    new CopyDefinitionDocumentFilter()
 ];
 
 

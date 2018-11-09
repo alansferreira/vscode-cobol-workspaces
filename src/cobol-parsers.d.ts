@@ -55,20 +55,31 @@ declare module 'cobol-parsers' {
 
 
     export interface ParsedProgram{
+        divisions?: ProgramParsedStatement[];
         statements: ProgramParsedStatement[];
     }
     export interface ProgramParsedStatement {
-        // STMT_TYPE: string;
-        // startedAtLine: number;
-        // endedAtLine: number;
-        // labelName?: string;
-        // command?: string;
-        // commandArgs?: string;
-        // args?: any[];
-        // jobName?: string;
-        // programerName?: string;
-        // datasetName?: string;
-        // program?: string;
+        name: string;
+        startedAtLine: number;
+        endedAtLine: number;
+
+        STMT_TYPE: 'FILE_CONTROL' | 'DIVISION' | 'SECTION' | 'COPY' | 'EXEC_CICS' | 'EXEC_SQL' | 'CALL_PROGRAM';
+
+        divisions?: ProgramParsedStatement[];
+        sections?: ProgramParsedStatement[];
+        statements?: ProgramParsedStatement[];
+        
+        isDivision?: string;
+
+        hardCodeCopySource?: string;
+        variableCopySource?: string;
+
+        hardCodeProgramName?: string;
+        variableProgramName?: string;
+        usingData?: string;
+
+        sqlStatement?: string;
+        programName?: string;
     }
 
     export interface ProgramReference {
