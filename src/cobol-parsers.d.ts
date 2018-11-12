@@ -79,6 +79,8 @@ declare module 'cobol-parsers' {
         usingData?: string;
 
         sqlStatement?: string;
+        include?: string;
+        
         programName?: string;
     }
 
@@ -109,10 +111,12 @@ declare module 'cobol-parsers' {
 
 
     export interface CopybookParsedStatement {
-        src?: string;
-        type?: string;
+        name: string;
+        src: string;
+        startedAtLine: number;
+        endedAtLine: number;
+        type: 'GROUP_ITEM' | 'PICX' | 'PIC9' | 'PICS9' | 'PIC_PLUS_9' | 'REDEFINES' | 'COPY';
         logicalLevel?: number;
-        name?: string;
         size?: number;
         default_value?: string;
         occurs_min?: number;

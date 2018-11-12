@@ -111,7 +111,11 @@ abstract class VariableDocumentFilter extends DocumentDefinitionFilter{
                 const parsedRefs = cobolParser.extractReferences(cobolParser.parseProgram(document.getText()));
                 if(!parsedRefs.copybook) { return resolve(); }
     
-                const fileRefs = parsedRefs.copybook.map((cpy) => `**/${cpy.reference.fileName}*`);
+                const fileRefs = parsedRefs.copybook.map((cpy) => {
+                    if(!cpy.reference || !cpy.reference.fileName) {return '';}
+
+                    return cpy.reference.fileName.replace(/./ig, (value, args)=>{ return `[${value.toUpperCase()}${value.toLowerCase()}]`; });
+                }).map((name) => `**/${name}*`);
     
                 for (let fRef = 0; fRef < fileRefs.length; fRef++) {
                     if(token.isCancellationRequested) { 

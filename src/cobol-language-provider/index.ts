@@ -11,6 +11,7 @@ export class COBOLProvider{
     public static activate(cxt: ExtensionContext){
         
         cxt.subscriptions.push(languages.registerHoverProvider(COBOL_MODE, new COBOLHoverProvider()));
+
         cxt.subscriptions.push(languages.registerReferenceProvider(COBOL_MODE, new COBOLReferenceProvider()));
         cxt.subscriptions.push(languages.registerDocumentSymbolProvider(COBOL_MODE, new COBOLDocumentSymbolProvider()));
         cxt.subscriptions.push(languages.registerWorkspaceSymbolProvider(new COBOLWorkspaceSymbolProvider()));

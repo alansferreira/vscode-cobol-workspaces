@@ -13,6 +13,65 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                 const parsedProgram = cobolParser.parseProgram(document.getText());
                 const parsedBook = copybookParser.loadBook(document.getText());
                 const result: DocumentSymbol[] = [];
+                
+                const field2Symbol = {
+                    recursive: (stmts: Parsers.CopybookParsedStatement[]): DocumentSymbol[] => {
+                        const result: DocumentSymbol[] = [];
+                        let stmtSymbol;
+                        let stmt;
+                        for (let s = 0; s < stmts.length; s++) {
+                            stmt = stmts[s];
+                            stmtSymbol = field2Symbol[stmt.type](stmt);
+                            if(stmt.fields) { stmtSymbol.children.push(...field2Symbol.recursive(stmt.fields)); }
+                            
+                            result.push(stmtSymbol);
+                        }
+                        return result;
+
+                    },
+                    'GROUP_ITEM': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Class, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+                    },
+                    'PICX': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.String, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                    'PIC9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                    'PICS9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                    'PIC_PLUS_9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                    'REDEFINES': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Interface, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                    'COPY': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
+                        const name = stmt.name;
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.File, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        return symbol;
+
+                    },
+                };
+
 
                 const stmt2SymbolMap = {
                     recursive: (stmts: Parsers.ProgramParsedStatement[]): DocumentSymbol[]=>{
@@ -42,6 +101,11 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                     'SECTION': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
                         const name = stmt.name;
                         const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.EnumMember, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        
+                        if(name.trim() === 'WORKING-STORAGE'){
+                            symbol.children.push( ... field2Symbol.recursive(parsedBook));
+                        }
+
                         return symbol;
                     },
                     'COPY': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
@@ -55,7 +119,7 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                         return symbol;
                     },
                     'EXEC_SQL': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
-                        const name = stmt.sqlStatement || '';
+                        const name = stmt.include || stmt.sqlStatement || '';
                         const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.EnumMember, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
                     },

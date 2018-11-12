@@ -39,7 +39,7 @@
                     "job",
                     "JOB"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./jcl-language-configuration.json"
             },
             {
                 "id": "COBOL",
@@ -54,7 +54,7 @@
                     "cobol",
                     "COBOL"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./cobol-language-provider/language-configuration.json"
             }
         ],
         "commands": [
@@ -92,7 +92,7 @@
         "typescript": "3.1.6"
     },
     "dependencies": {
-        "cobol-parsers": "^1.0.10",
+        "cobol-parsers": "^1.0.12",
         "moment": "2.22.2",
         "nedb": "1.8.0",
         "vscode": "^1.1.21",
