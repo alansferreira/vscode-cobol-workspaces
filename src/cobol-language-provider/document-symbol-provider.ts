@@ -31,30 +31,32 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                     },
                     'GROUP_ITEM': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Class, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Array, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        if(stmt.logicalLevel === 88) {symbol.kind = SymbolKind.Constant; }
+                        if(stmt.logicalLevel === 66) {symbol.kind = SymbolKind.Constant; }
                         return symbol;
                     },
                     'PICX': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.String, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Variable, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
 
                     },
                     'PIC9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Variable, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
 
                     },
                     'PICS9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Variable, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
 
                     },
                     'PIC_PLUS_9': (stmt: Parsers.CopybookParsedStatement): DocumentSymbol => {
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Number, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.type, SymbolKind.Variable, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
 
                     },
@@ -100,9 +102,10 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                     },
                     'SECTION': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
                         const name = stmt.name;
-                        const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.EnumMember, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.Method, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         
                         if(name.trim() === 'WORKING-STORAGE'){
+                            symbol.kind = SymbolKind.Variable;
                             symbol.children.push( ... field2Symbol.recursive(parsedBook));
                         }
 
@@ -110,7 +113,7 @@ export class COBOLDocumentSymbolProvider implements DocumentSymbolProvider {
                     },
                     'COPY': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
                         const name = stmt.hardCodeCopySource || stmt.variableCopySource || '';
-                        const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.EnumMember, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
+                        const symbol = new DocumentSymbol(name, stmt.STMT_TYPE, SymbolKind.Module, new Range(stmt.startedAtLine -1, 0, stmt.endedAtLine -1, 8), new Range(stmt.startedAtLine -1, 7, stmt.endedAtLine -1, 7));
                         return symbol;
                     },
                     'EXEC_CICS': (stmt: Parsers.ProgramParsedStatement): DocumentSymbol=>{
