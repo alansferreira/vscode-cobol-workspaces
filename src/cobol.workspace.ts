@@ -16,6 +16,11 @@ const map = [
         regx: /^\/\/.........JOB/igm,
     },
     {
+        type: 'jclSource1',
+        extenssion: 'jcl',
+        regx: /^........ PROCESS +[SP]NODE/igm,
+    },
+    {
         type: 'dclgenSource',
         extenssion: 'dclgen',
         regx: /CREATE[ ]{1,}TABLE[ ]{1}.*^[ ]{7,}[0-9]+[ ].*\./igm,
@@ -56,97 +61,66 @@ export class CobolWorkspace{
 
     constructor(){}
 
-    organizeFromFtp(){
-        if(!workspace.workspaceFolders) {
-            return;
-        }
-        
-        workspace.workspaceFolders.map((wrk) => {
-            window.showInformationMessage('Auto fixing files path and names ...');
+    organizeFromFtp(workspaceFolder: WorkspaceFolder){
+        window.showInformationMessage('Auto fixing files path and names ...');
 
-            const executor = new OrganizeFromFtp(wrk, 'src');
-            
-            executor.buildChanges()
-            .then((fsChanges) => {
-                executor.changeSet.changes = fsChanges;
-                executor.apply()
-                .then(() => {
-                    window.showInformationMessage('Files fixed!');
-                });
+        const executor = new OrganizeFromFtp(workspaceFolder, 'src');
+        
+        executor.buildChanges()
+        .then((fsChanges) => {
+            executor.changeSet.changes = fsChanges;
+            executor.apply()
+            .then(() => {
+                window.showInformationMessage('Files fixed!');
             });
-        
         });
-
     }
     
-    fixFilesExtensions(){
-        if(!workspace.workspaceFolders) {
-            return;
-        }
+    fixFilesExtensions(workspaceFolder: WorkspaceFolder){
+        window.showInformationMessage('Fixing files extensions ...');
+
+        const executor = new FixFilesExtenssions(workspaceFolder);
         
-        workspace.workspaceFolders.map((wrk) => {
-            window.showInformationMessage('Fixing files extensions ...');
-
-            const executor = new FixFilesExtenssions(wrk);
-            
-            executor.buildChanges()
-            .then((fsChanges) => {
-                executor.changeSet.changes = fsChanges;
-                executor.apply()
-                .then(() => {
-                    window.showInformationMessage('Files extensions fixed!');
-                });
-            });
-        
-        });
-
-    }
-
-    groupFilesByPrefix(){
-        if(!workspace.workspaceFolders) {
-            return;
-        }
-        
-        workspace.workspaceFolders.map((wrk) => {
-            window.showInformationMessage('Grouping files prefix ...');
-
-            const executor = new GroupByPrefix(wrk, 'src');
-            
-            executor.buildChanges()
-            .then((fsChanges) => {
-                executor.changeSet.changes = fsChanges;
-                executor.apply()
-                .then(() => {
-                    window.showInformationMessage('Grouping files finished!');
-                });
-            });
-        
-        });
-
-    }
-
-    undoLastAction(){
-        if(!workspace.workspaceFolders) {
-            return;
-        }
-
-
-        workspace.workspaceFolders.map((wrk) => {
-            window.showInformationMessage('Undoing last workspace changes ...');
-
-            const executor = new FsChangeSetApplier({
-                type: 'GENERICUNDO',
-                baseDir: wrk.uri.fsPath, 
-                changes: [], 
-                changedAt: new Date()
-            });
-            
-            executor.undo()
+        executor.buildChanges()
+        .then((fsChanges) => {
+            executor.changeSet.changes = fsChanges;
+            executor.apply()
             .then(() => {
-                window.showInformationMessage('Last workspace changes undoed!');
+                window.showInformationMessage('Files extensions fixed!');
             });
         });
+    }
 
+    groupFilesByPrefix(workspaceFolder: WorkspaceFolder){
+        window.showInformationMessage('Grouping files prefix ...');
+
+        const executor = new GroupByPrefix(workspaceFolder, 'src');
+        
+        executor.buildChanges()
+        .then((fsChanges) => {
+            executor.changeSet.changes = fsChanges;
+            executor.apply()
+            .then(() => {
+                window.showInformationMessage('Grouping files finished!');
+            });
+        });
+        
+    }
+
+    undoLastAction(workspaceFolder: WorkspaceFolder){
+        window.showInformationMessage('Undoing last workspace changes ...');
+
+        const executor = new FsChangeSetApplier({
+            type: 'GENERICUNDO',
+            baseDir: workspaceFolder.uri.fsPath, 
+            changes: [], 
+            changedAt: new Date()
+        });
+        
+        executor.undo()
+        .then(() => {
+            window.showInformationMessage('Last workspace changes undoed!');
+        });
     }
  
 }
