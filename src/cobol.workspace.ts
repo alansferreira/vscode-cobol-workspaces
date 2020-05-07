@@ -76,19 +76,15 @@ export class CobolWorkspace{
         });
     }
     
-    fixFilesExtensions(workspaceFolder: WorkspaceFolder){
+    async fixFilesExtensions(workspaceFolder: WorkspaceFolder){
         window.showInformationMessage('Fixing files extensions ...');
 
         const executor = new FixFilesExtenssions(workspaceFolder);
         
-        executor.buildChanges()
-        .then((fsChanges) => {
-            executor.changeSet.changes = fsChanges;
-            executor.apply()
-            .then(() => {
-                window.showInformationMessage('Files extensions fixed!');
-            });
-        });
+        const fsChanges = await executor.buildChanges();
+        executor.changeSet.changes = fsChanges;
+        await executor.apply();
+        window.showInformationMessage('Files extensions fixed!');
     }
 
     groupFilesByPrefix(workspaceFolder: WorkspaceFolder){
@@ -198,14 +194,14 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
             }
     
     
-            parsedFiles.map((f) => {
+            parsedFiles.forEach((f) => {
                 this.ftpExpr.lastIndex = -1;
                 let dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
                 
                 const m = this.ftpExpr.exec(f.base);
                 if(m && m.index > -1){
                     const dir = m[1].split('.');                    
-                    dir.map((d) => {
+                    dir.forEach((d) => {
                         dst = path.join(dst, d);
                         if (paths.indexOf(dst) >- 1 ){
                             return;
@@ -228,7 +224,7 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
                 fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
             }
 
-            parsedFiles.map((f) => {
+            parsedFiles.forEach((f) => {
                 this.ftpExpr.lastIndex = -1;
                 const srcFileName = path.join(f.dir, f.base);
                 const ext = discoverFileExtenssion(srcFileName);
@@ -252,66 +248,46 @@ export class OrganizeFromFtp extends FsChangeSetApplier{
 export class GroupByPrefix extends FsChangeSetApplier{
     basePath: string;
 
-    constructor(
-        private workspaceFolder: WorkspaceFolder,
-        private middlePath?: string,
-    )
-    {
-        super(<IFsChangeSet>{
-            type: 'GROUPBYPREFIX',
-            baseDir: workspaceFolder.uri.fsPath, 
-            changes: [], 
-            changedAt: new Date()
-        });
+    constructor( private workspaceFolder: WorkspaceFolder, private middlePath?: string | undefined ) {
+        super(<IFsChangeSet>{ type: 'GROUPBYPREFIX', baseDir: workspaceFolder.uri.fsPath,  changes: [], changedAt: new Date() });
         this.basePath = path.join(this.workspaceFolder.uri.fsPath, path.sep);
     }
 
 
     buildChanges(): Promise<IFsChange[]> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             
-            workspace
-            .findFiles('**/*', '.actions')
-            .then((files: Uri[]) => {
-                const filteredFiles = files.filter((f) => {
-                    
-                    if(!f.fsPath.startsWith(this.basePath)){
-                        return false;
-                    }
-
-                    const parsed = path.parse(f.fsPath);
-                    if(moveFolderInclusions.indexOf(parsed.ext.toLowerCase().substring(1)) === -1){
-                        return false;
-                    }
-                    
-                    if(parsed.name.length < 5){
-                        OutputChannel.appendLine(`skkiped: '${f.fsPath}', name size lessthan 5.`);
-                        return false;
-                    }
-                    return true;
-                }).map((f) => path.parse(f.fsPath));
-
+            const files: Uri[] = await workspace.findFiles('**/*', '.actions');
+            const filteredFiles = files.filter((f) => {
                 
-                const fsChanges: IFsChange[] = [];
-                this.buildFolders(filteredFiles)
-                .then((fsChangesDir) => {
+                if(!f.fsPath.startsWith(this.basePath)) {
+                    return false;
+                }
 
-                    fsChanges.push(...fsChangesDir);
+                const parsed = path.parse(f.fsPath);
+                if(moveFolderInclusions.indexOf(parsed.ext.toLowerCase().substring(1)) === -1){
+                    return false;
+                }
+                
+                if(parsed.name.length < 5){
+                    OutputChannel.appendLine(`skkiped: '${f.fsPath}', name size lessthan 5.`);
+                    return false;
+                }
+                return true;
+            }).map((f) => path.parse(f.fsPath));
 
-                    this.buildFilesMoves(filteredFiles).then((fsChangesFiles) => {
-                        fsChanges.push(...fsChangesFiles);
-
-                        for (let i = 0; i < fsChanges.length; i++) {
-                            fsChanges[i].index = i;
-                        }
-
-                        return resolve(fsChanges);
-
-                    });
-                });
-
-            });
             
+            const fsChanges: IFsChange[] = [];
+            const fsChangesDir = await this.buildFolders(filteredFiles);
+            fsChanges.push(...fsChangesDir);
+
+            const fsChangesFiles = await this.buildFilesMoves(filteredFiles);
+            fsChanges.push(...fsChangesFiles);
+
+            for (let i = 0; i < fsChanges.length; i++) {
+                fsChanges[i].index = i;
+            }
+
         });
     }
     buildFolders(parsedFiles: path.ParsedPath[]): Promise<IFsChange[]> {
@@ -325,8 +301,7 @@ export class GroupByPrefix extends FsChangeSetApplier{
                 fsChanges.push(<IFsChange>{src: '', dst: dst, type: FsChangeType.NEW_DIR});
             }
     
-    
-            parsedFiles.map((f) => {
+            parsedFiles.forEach((f) => {
                 const dst = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '', f.name.substring(0, 4));
                 
                 if (paths.indexOf(dst) >- 1 ){
@@ -344,7 +319,7 @@ export class GroupByPrefix extends FsChangeSetApplier{
         return new Promise((resolve, reject) => {
             const fsChanges: IFsChange[] = [];
 
-            parsedFiles.map((parsedFile) => {
+            parsedFiles.forEach((parsedFile) => {
                 const absRootDir = path.join(this.workspaceFolder.uri.fsPath, this.middlePath || '');
                 const dstDir = path.join(absRootDir, parsedFile.name.substr(0, 4), path.sep);
                 const srcFullPath = path.join(parsedFile.dir,parsedFile.base);
@@ -384,36 +359,30 @@ export class FixFilesExtenssions extends FsChangeSetApplier{
 
 
     buildChanges(): Promise<IFsChange[]> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             
-            workspace
-            .findFiles('**/*', '.actions')
-            .then((files: Uri[]) => {
-                const filteredFiles = files.filter((f) => {
-                    
-                    const ext = path.extname(f.fsPath).toLowerCase();
+            const files: Uri[] = await workspace.findFiles('**/*', '.actions');
             
-                    if(ext && excludedExtenssions.indexOf(ext.substr(1)) > -1){
-                        return false;
-                    }
-                    return true;
-                }).map((f) => path.parse(f.fsPath));
-
-                const fsChanges: IFsChange[] = [];
+            const filteredFiles = files.filter((f) => {
                 
-                this.buildFilesMoves(filteredFiles)
-                .then((fsChangesFiles) => {
-                    fsChanges.push(...fsChangesFiles);
+                const ext = path.extname(f.fsPath).toLowerCase();
+        
+                if(ext && excludedExtenssions.indexOf(ext.substr(1)) > -1){
+                    return false;
+                }
+                return true;
+            }).map((f) => path.parse(f.fsPath));
 
-                    for (let i = 0; i < fsChanges.length; i++) {
-                        fsChanges[i].index = i;
-                    }
+            const fsChanges: IFsChange[] = [];
+            
+            const fsChangesFiles = await this.buildFilesMoves(filteredFiles);
+            fsChanges.push(...fsChangesFiles);
 
-                    return resolve(fsChanges);
+            for (let i = 0; i < fsChanges.length; i++) {
+                fsChanges[i].index = i;
+            }
 
-                });
-
-            });
+            return resolve(fsChanges);
             
         });
     }

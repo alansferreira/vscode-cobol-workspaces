@@ -18,45 +18,13 @@
         "Other"
     ],
     "activationEvents": [
-        "onLanguage:JCL",
-        "onLanguage:COBOL",
         "onCommand:cobolplugin.organizeFromFtp",
         "onCommand:cobolplugin.organizeExtenssions",
         "onCommand:cobolplugin.groupfilesbyprefix",
         "onCommand:cobolplugin.undolastaction"
     ],
-    "main": "./out/extension",
+    "main": "./lib/extension",
     "contributes": {
-        "languages": [
-            {
-                "id": "JCL",
-                "aliases": [
-                    "JCL"
-                ],
-                "extensions": [
-                    "jcl",
-                    "JCL",
-                    "job",
-                    "JOB"
-                ],
-                "configuration": "./jcl-language-configuration.json"
-            },
-            {
-                "id": "COBOL",
-                "aliases": [
-                    "COB"
-                ],
-                "extensions": [
-                    "cob",
-                    "COB",
-                    "cbl",
-                    "CBL",
-                    "cobol",
-                    "COBOL"
-                ],
-                "configuration": "./cobol-language-provider/language-configuration.json"
-            }
-        ],
         "commands": [
             {
                 "command": "cobolplugin.organizeFromFtp",

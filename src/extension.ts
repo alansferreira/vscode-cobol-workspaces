@@ -31,7 +31,7 @@ export function activate(ctx: ExtensionContext) {
             const wrk = await chooseWorkspace({
                 placeHolder: 'Chosse workspace folder to apply extenssions organizations:',
             });
-            cobolWorkspace.fixFilesExtensions( wrk );
+            await cobolWorkspace.fixFilesExtensions( wrk );
             
         } catch (error) {
             window.showErrorMessage(error);
